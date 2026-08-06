@@ -1,0 +1,69 @@
+# 脚本执行网关（Scripts Gateway）配置
+server:
+  addr: ":8080"           # 监听地址
+  auth_token: "abc123"    # 访问令牌，为空则关闭鉴权；请求需携带 Authorization: Bearer <token> 或 X-Auth-Token
+  stdout_format: "lines"  # 任务结果 stdout 格式：text=原样字符串（默认）；lines=按行拆分为数组
+  max_concurrent: 9       # 并发执行上限（0=不限；达到上限时新请求返回 503）
+
+scripts_dir: "./scripts"  # 脚本根目录（相对路径基于进程启动目录）
+work_dir: "./"            # 脚本进程的工作目录
+allow_outside_scripts: false  # 允许执行脚本目录之外的脚本（默认 false；开启后 script 可为绝对路径或含 ../ 的相对路径）
+
+# 执行历史与日志持久化（默认关闭；JSONL 追加写，含滚动/保留清理/查询接口）
+history:
+  enabled: true           # 总开关
+  dir: "./history"         # 历史存储目录（自动创建，权限 0750，文件 0640）
+  max_file_size_mb: 50     # 单个文件滚动阈值（MB）
+  max_files: 25            # 保留文件数兜底（超出删除最旧的）
+  retention_days: 60       # 记录保留天数（0 = 不按时间清理）
+  max_output_bytes: 65536  # 每条记录持久化的 stdout/stderr 上限（字节）
+  stdout_format: "lines"   # 历史落盘与查询接口 stdout 格式：text=原样字符串（默认）；lines=按行拆分为数组；未配置时跟随 server.stdout_format
+
+# 接口 -> 脚本 映射
+mappings:
+  - name: deploy
+    method: POST
+    script: deploy.sh
+    timeout_seconds: 60
+    params:
+      - name: env
+        required: true
+        description: 部署环境，如 prod/staging
+      - name: version
+        required: true
+        description: 发布版本号
+
+  - name: backup
+    method: POST
+    script: backup.sh
+    timeout_seconds: 120
+    params:
+      - name: target
+        required: true
+        description: 要备份的文件或目录
+      - name: destination
+        required: false
+        default: "./backups"
+        description: 备份输出目录
+
+  - name: backup-scripts
+    method: POST
+    script: backup.sh
+    timeout_seconds: 120
+    params:
+      - name: target
+        required: false
+        default: "./scripts"
+      - name: destination
+        required: false
+        default: "./backups/scripts"
+
+  - name: report
+    method: GET
+    script: report.sh
+    timeout_seconds: 30
+    params:
+      - name: days
+        required: false
+        default: "7"
+        description: 统计天数

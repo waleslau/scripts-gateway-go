@@ -1,0 +1,6 @@
+/scripts-gateway-go
+*.exe
+*.test
+/backups/
+/history/
+/config.yaml.bak
